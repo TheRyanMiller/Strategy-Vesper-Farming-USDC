@@ -26,7 +26,8 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
             ((vault.totalAssets() - amount) * 73) / (amount)
         )
     )
-
+    chain.sleep(21700)
+    chain.mine(1)
     # withdrawal
     vault.withdraw(vault.balanceOf(user),user,61,{"from": user}) # Need more loss protect to handle 0.6% withdraw fee
     print("User balance after withdraw")

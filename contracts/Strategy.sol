@@ -110,12 +110,8 @@ contract Strategy is BaseStrategy {
         
         uint256 shares = IVesperPool(vUSDC).balanceOf(address(this));
         if(shares > 0){
-            // uint256 pps = morePrecisePricePerShare();
-            // uint256 withdrawableWant = pps.mul(shares).div(1e24);
-            uint256 withdrawableWant = shares.mul(
-                convertTo18(IVesperPool(vUSDC).totalValue()))
-                .div(IVesperPool(vUSDC).totalSupply());
-
+            uint256 pps = morePrecisePricePerShare();
+            uint256 withdrawableWant = pps.mul(shares).div(1e24);
             //uint256 withdrawFee = withdrawableWant.mul(IVesperPool(vUSDC).withdrawFee()).div(1e18);
             //withdrawableWant = withdrawableWant.sub(withdrawFee); // apply withdrawal fee to calculation
             return totalWant.add(
