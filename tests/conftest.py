@@ -99,3 +99,7 @@ def vUSDC():
 @pytest.fixture
 def vVSP():
     yield Contract("0xbA4cFE5741b357FA371b506e5db0774aBFeCf8Fc")
+
+@pytest.fixture
+def vvspStrat():
+    yield Contract("0xd5579A994194C142846aBafA5919Fbad0aE32AA2")

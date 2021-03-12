@@ -71,8 +71,8 @@ contract Strategy is BaseStrategy {
 
     bool public useVvsp = true; // Allows us to control whether VSP rewards should be deposited to vVSP
     bool private harvestVvsp = false;
-    uint256 public _keepVSP = 300000;
-    uint256 public constant DENOMINATOR = 1000000;
+    uint256 public _keepVSP = 0; // 30%
+    uint256 public constant DENOMINATOR = 10000;
     
 
     constructor(address _vault) public BaseStrategy(_vault) {
@@ -101,7 +101,7 @@ contract Strategy is BaseStrategy {
 
     function estimatedTotalAssets() public view override returns (uint256) {
         // TODO: Build a more accurate estimate using the value of all positions in terms of `want`
-        uint256 totalWant = want.balanceOf(address(this));
+        uint256 totalWant = 0;
 
         // Calculate VSP holdings
         uint256 totalVSP = IERC20(vsp).balanceOf(address(this));
@@ -117,6 +117,7 @@ contract Strategy is BaseStrategy {
         }
         
         // Calculate want
+        totalWant.add(want.balanceOf(address(this)));
         return totalWant.add(calcWantHeldInVault());
     }
 
@@ -313,6 +314,11 @@ contract Strategy is BaseStrategy {
 
     function convertTo18(uint256 _value) public pure returns (uint256) {
         return _value.mul(10**12);
+    }
+    
+    function setKeepVSP(uint256 _amount) external onlyGovernance {
+        require(_amount < DENOMINATOR, "cannot greater than denom!");
+        _keepVSP = _amount;
     }
 
     function toggleUseVvsp() external onlyGovernance {

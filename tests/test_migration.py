@@ -8,9 +8,14 @@ def test_migration(token, vault, strategy, amount, Strategy, strategist, gov, us
     token.approve(vault.address, amount, {"from": user})
     vault.deposit(amount, {"from": user})
     strategy.harvest({"from": strategist})
-    assert token.balanceOf(strategy.address) == amount
+    tokenBalBefore = token.balanceOf(strategy.address)
+    assert strategy.estimatedTotalAssets()+1 == amount
 
     # migrate to a new strategy
     new_strategy = strategist.deploy(Strategy, vault)
-    strategy.migrate(new_strategy.address, {"from": user})
-    assert token.balanceOf(new_strategy.address) == amount
+    strategy.migrate(new_strategy.address, {"from": gov})
+    tokenBalAfter = token.balanceOf(strategy.address)
+    assert new_strategy.estimatedTotalAssets()+1 >= amount
+    assert strategy.estimatedTotalAssets() == 0
+    
+
