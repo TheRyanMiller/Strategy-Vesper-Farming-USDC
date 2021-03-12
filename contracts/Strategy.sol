@@ -69,9 +69,7 @@ contract Strategy is BaseStrategy {
     address public constant weth =          0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address[] public vspPath;
 
-    uint256 public profit = 0;
-
-    bool public useVvsp = false; // Allows us to control whether VSP rewards should be deposited to vVSP
+    bool public useVvsp = true; // Allows us to control whether VSP rewards should be deposited to vVSP
     bool private harvestVvsp = false;
     uint256 public _keepVSP = 300000;
     uint256 public constant DENOMINATOR = 1000000;
@@ -122,15 +120,14 @@ contract Strategy is BaseStrategy {
         return totalWant.add(calcWantHeldInVault());
     }
 
-    function calcWantHeldInVault() internal view returns (uint256 totalWant) {
-        totalWant = 0;
+    function calcWantHeldInVault() internal view returns (uint256 wantBalance) {
+        wantBalance = 0;
         uint256 shares = IVesperPool(vUSDC).balanceOf(address(this));
         if(shares > 0){
             uint256 pps = morePrecisePricePerShare();
             uint256 withdrawableWant = pps.mul(shares).div(1e24);
-            totalWant.add(convertFrom18(withdrawableWant)); 
+            wantBalance = wantBalance.add(convertFrom18(withdrawableWant)); 
         }
-        return totalWant;
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -150,13 +147,17 @@ contract Strategy is BaseStrategy {
         }
 
         if(harvestVvsp){
-            withdrawAllVvsp(); // Call this even if useVvsp is false. Covers us in senario when we had a balance in vault when toggle switched off.
+            withdrawAllVvsp();
+            harvestVvsp = false;
+            _sell(IERC20(vsp).balanceOf(address(this)));
         }
-        uint256 vspBal = IERC20(vsp).balanceOf(address(this));
-        if(vspBal > 0){
-            uint256 keepAmt = vspBal.mul(_keepVSP).div(DENOMINATOR);
-            uint256 sellAmt = vspBal.sub(keepAmt);
-            _sell(sellAmt);
+        else{
+            uint256 vspBal = IERC20(vsp).balanceOf(address(this));
+            if(vspBal > 0){
+                uint256 keepAmt = vspBal.mul(_keepVSP).div(DENOMINATOR);
+                uint256 sellAmt = vspBal.sub(keepAmt);
+                _sell(sellAmt);
+            }
         }
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
@@ -171,7 +172,7 @@ contract Strategy is BaseStrategy {
 
         uint256 toFree = _debtPayment.add(_profit);
 
-        // Check if we'll need to dip into vsp vault to pay debt
+        // Unlikely, but let's check if we'll need to dip into vsp vault to pay debt
         if(toFree > calcWantHeldInVault()){
             // Don't bother withdrawing some, just yank it all
             withdrawAllVvsp();
@@ -179,7 +180,8 @@ contract Strategy is BaseStrategy {
             if(vspBalance > 0){
                 _sell(vspBalance);
             }
-            toFree = toFree.sub(want.balanceOf(address(this)));
+            uint256 wantAfter = want.balanceOf(address(this)).sub(wantBalance); // Amount we just bought
+            toFree = toFree.sub(wantAfter);
         }
 
         if(toFree > wantBalance){
@@ -204,7 +206,6 @@ contract Strategy is BaseStrategy {
                 _debtPayment = wantBalance.sub(_profit);
             }
         }
-        profit = _profit;  
     }
 
     function withdrawSome(uint256 _amount) internal returns (uint256 _liquidatedAmount, uint256 _loss) {
@@ -251,7 +252,7 @@ contract Strategy is BaseStrategy {
             IVesperPool(vUSDC).deposit(_wantAvailable);
         }
 
-        // Claim VSP and stake into vVSP vault to increase VSP rewards
+        // Check are we using the vsp vault?
         if(useVvsp){
             IPoolRewards(poolRewards).claimReward(address(this));
             uint256 rewards = IERC20(vsp).balanceOf(address(this));
@@ -318,8 +319,13 @@ contract Strategy is BaseStrategy {
         useVvsp = !useVvsp;
     }
 
-    function toggleHarvestVvsp() external onlyGovernance {
-        harvestVvsp = !harvestVvsp;
+    function toggleHarvestVvsp() external {
+        require(msg.sender == strategist || 
+                msg.sender == governance() ||
+                msg.sender == vault.management(),
+            "!authorized"
+        );
+        harvestVvsp = true;
     }
 
     function protectedTokens() internal view override returns (address[] memory) {

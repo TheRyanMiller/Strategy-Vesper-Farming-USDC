@@ -2,7 +2,7 @@ import brownie
 from brownie import Contract
 
 
-def test_operation(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP):
+def test_operation(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP, vsp):
     
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})
@@ -11,7 +11,7 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
 
     # harvest
     strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets() == amount # Won't match because we must account for withdraw fees
+    assert strategy.estimatedTotalAssets()+1 == amount # Won't match because we must account for withdraw fees
 
     # tend()
     # strategy.tend({"from": strategist})
@@ -21,17 +21,27 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     chain.sleep(seconds_in_day*5) # 1 day
     chain.mine(1)
     strategy.harvest({"from": strategist})
-
-    print("\nEstimated APR: ", "{:.2%}".format(
+    print("\nEst No Dump APR: ", "{:.2%}".format(
             ((vault.totalAssets() - amount) * 73) / (amount)
         )
     )
-    chain.sleep(21700)
+
+    seconds_in_day = 86400 # 1 day
+    chain.sleep(seconds_in_day*5)
     chain.mine(1)
+    strategy.harvest({"from": strategist})
+    
+    chain.sleep(seconds_in_day*5)
+    chain.mine(1)
+    strategy.toggleHarvestVvsp({"from":strategist}) # Dump VSP tokens this time
+    strategy.harvest({"from": strategist})
+    print("\nEst Dump APR: ", "{:.2%}".format(
+            ((vault.totalAssets() - amount) * 24.33) / (amount)
+        )
+    )
     # withdrawal
+    chain.sleep(3600) #six hours
     vault.withdraw(vault.balanceOf(user),user,61,{"from": user}) # Need more loss protect to handle 0.6% withdraw fee
-    print("User balance after withdraw")
-    print(token.balanceOf(user))
     assert token.balanceOf(user) != 0
 
 
@@ -52,7 +62,6 @@ def test_profitable_harvest(accounts, token, vault, strategy, strategist, amount
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})
     vault.deposit(amount, {"from": user})
-    print("AMOUNT",amount)
     # harvest
     strategy.harvest({"from": strategist})
     assert strategy.estimatedTotalAssets()+1 >= amount
@@ -66,18 +75,18 @@ def test_profitable_harvest(accounts, token, vault, strategy, strategist, amount
     assert strategy.estimatedTotalAssets() > amount
 
 
-def test_change_debt(gov, token, vault, strategy, strategist, amount, user):
+def test_change_debt(gov, token, vault, strategy, strategist, amount, user, vUSDC, vVSP):
     # Deposit to the vault and harvest
     token.approve(vault.address, amount, {"from": user})
     vault.deposit(amount, {"from": user})
     vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
     strategy.harvest({"from": strategist})
 
-    assert strategy.estimatedTotalAssets()+1 == 5_000
+    assert strategy.estimatedTotalAssets()+1 == amount / 2
 
     vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
     strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets() == 10_000
+    assert strategy.estimatedTotalAssets() == amount
 
     # In order to pass this tests, you will need to implement prepareReturn.
     # TODO: uncomment the following lines.
@@ -109,11 +118,10 @@ def test_sweep(gov, vault, strategy, token, amount, weth, weth_amout, vsp, user)
     with brownie.reverts("!authorized"):
          strategy.sweep(token.address, {"from": user})
 
-    weth.transfer(strategy, weth_amout, {"from": gov})
+    weth.transfer(strategy, weth.balanceOf(gov), {"from": gov})
     assert weth.address != strategy.want()
-    assert weth.balanceOf(gov) == 0
     strategy.sweep(weth, {"from": gov})
-    assert weth.balanceOf(gov) == weth_amout
+    assert weth.balanceOf(gov) > 0
 
 
 def test_triggers(gov, vault, strategy, token, amount, weth, weth_amout, user, strategist):
