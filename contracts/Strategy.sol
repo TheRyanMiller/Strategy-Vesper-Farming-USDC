@@ -20,31 +20,20 @@ import "@openzeppelin/contracts/math/Math.sol";
 
 interface IPoolRewards {
     function claimReward(address) external;
-
     function claimable(address) external view returns (uint256);
-
     function pool() external view returns (address);
-
     function rewardPerToken() external view returns (uint256);
 }
 
 interface IVesperPool {
     function approveToken() external;
-
     function deposit(uint256) external;
-
     function withdraw(uint256) external;
-
     function balanceOf(address) external view returns (uint256);
-
     function totalSupply() external view returns (uint256);
-
     function totalValue() external view returns (uint256);
-
     function rewardPerToken() external view returns (uint256);
-
     function getPricePerShare() external view returns (uint256);
-
     function withdrawFee() external view returns (uint256);
 }
 
@@ -53,7 +42,6 @@ interface IUniswapV2Router {
         external
         view
         returns (uint256[] memory amounts);
-
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -70,24 +58,22 @@ contract Strategy is BaseStrategy {
 
     // Vesper contracts: https://docs.vesper.finance/vesper-grow-pools/vesper-grow/audits#vesper-pool-contracts
     // Vesper vault strategies: https://medium.com/vesperfinance/vesper-grow-strategies-today-and-tomorrow-8bd7b907ba5
-    address public constant vUSDC = 0x0C49066C0808Ee8c673553B7cbd99BCC9ABf113d;
-    address public constant uniswap =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address public constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
-    address public activeDex = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
-    address public constant vsp = 0x1b40183EFB4Dd766f11bDa7A7c3AD8982e998421;
-    address public constant vVSP = 0xbA4cFE5741b357FA371b506e5db0774aBFeCf8Fc;
-    address public constant poolRewards =
-        0xd59996055b5E0d154f2851A030E207E0dF0343B0;
-    address public constant usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address public constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant vUSDC =         0x0C49066C0808Ee8c673553B7cbd99BCC9ABf113d;
+    address public constant uniswap =       0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address public constant sushiswap =     0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    address public activeDex =              0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    address public constant vsp =           0x1b40183EFB4Dd766f11bDa7A7c3AD8982e998421;
+    address public constant vVSP =          0xbA4cFE5741b357FA371b506e5db0774aBFeCf8Fc;
+    address public constant poolRewards =   0xd59996055b5E0d154f2851A030E207E0dF0343B0;
+    address public constant usdc =          0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address public constant weth =          0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address[] public vspPath;
 
     bool public useVvsp = true; // Allows us to control whether VSP rewards should be deposited to vVSP
-    bool private harvestVvsp = false;
-    uint256 public _keepVSP = 3000; // 30%
+    bool private harvestVvsp =  false;
+    uint256 public _keepVSP =   3000; // 30%
     uint256 public constant DENOMINATOR = 10000;
+    
 
     constructor(address _vault) public BaseStrategy(_vault) {
         // You can set these parameters on deployment to whatever you want
@@ -120,32 +106,28 @@ contract Strategy is BaseStrategy {
         // Calculate VSP holdings
         uint256 totalVSP = IERC20(vsp).balanceOf(address(this));
         uint256 vspShares = IVesperPool(vVSP).balanceOf(address(this));
-        if (vspShares > 0) {
+        if(vspShares > 0){
             uint256 pps = IVesperPool(vVSP).getPricePerShare();
             uint256 vaultBal = pps.mul(vspShares).div(1e18);
             totalVSP.add(vaultBal);
         }
         totalVSP.add(IPoolRewards(poolRewards).claimable(address(this)));
-        if (totalVSP > 0) {
+        if(totalVSP > 0){
             totalWant.add(convertVspToWant(totalVSP));
         }
-
+        
         // Calculate want
         totalWant.add(want.balanceOf(address(this)));
         return totalWant.add(calcWantHeldInVesper());
     }
 
-    function calcWantHeldInVesper()
-        internal
-        view
-        returns (uint256 wantBalance)
-    {
+    function calcWantHeldInVesper() internal view returns (uint256 wantBalance) {
         wantBalance = 0;
         uint256 shares = IVesperPool(vUSDC).balanceOf(address(this));
-        if (shares > 0) {
+        if(shares > 0){
             uint256 pps = morePrecisePricePerShare();
             uint256 withdrawableWant = pps.mul(shares).div(1e24);
-            wantBalance = wantBalance.add(convertFrom18(withdrawableWant));
+            wantBalance = wantBalance.add(convertFrom18(withdrawableWant)); 
         }
     }
 
@@ -161,87 +143,93 @@ contract Strategy is BaseStrategy {
         _debtPayment = _debtOutstanding;
 
         uint256 claimable = IPoolRewards(poolRewards).claimable(address(this));
-        if (claimable > 0) {
+        if(claimable > 0){
             IPoolRewards(poolRewards).claimReward(address(this));
         }
 
         // Check if we are harvesting the vVSP vault
-        if (harvestVvsp) {
+        if(harvestVvsp){
             withdrawAllVvsp();
-            _sell(IERC20(vsp).balanceOf(address(this)));
+            uint256 toSell = IERC20(vsp).balanceOf(address(this));
+            if(toSell > 0){
+                _sell(toSell);
+            }
             harvestVvsp = false;
-        } else {
+        }
+        else{
             uint256 vspBal = IERC20(vsp).balanceOf(address(this));
-            if (vspBal > 0) {
+            if(vspBal > 0){
                 uint256 keepAmt = vspBal.mul(_keepVSP).div(DENOMINATOR);
                 uint256 sellAmt = vspBal.sub(keepAmt);
-                _sell(sellAmt);
+                if(sellAmt > 0){
+                    _sell(sellAmt);
+                }
             }
         }
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 currentValue = estimatedTotalAssets();
         uint256 wantBalance = want.balanceOf(address(this));
-
-        if (debt < currentValue) {
+        
+        if(debt < currentValue){
             _profit = currentValue.sub(debt);
-        } else {
+        }
+        else{
             _loss = debt.sub(currentValue);
         }
 
         uint256 toFree = _debtPayment.add(_profit);
 
         // Unlikely, but let's check if we'll need to dip into vsp vault to pay debt
-        if (toFree > calcWantHeldInVesper()) {
+        if(toFree > calcWantHeldInVesper()){
             // Don't bother withdrawing some, just yank it all
             withdrawAllVvsp();
             uint256 vspBalance = IERC20(vsp).balanceOf(address(this));
-            if (vspBalance > 0) {
+            if(vspBalance > 0){
                 _sell(vspBalance);
             }
             uint256 wantAfter = want.balanceOf(address(this)).sub(wantBalance); // Amount we just bought
             toFree = toFree.sub(wantAfter);
         }
 
-        if (toFree > wantBalance) {
+        if(toFree > wantBalance){
             toFree = toFree.sub(wantBalance);
-
-            (uint256 liquidatedAmount, uint256 withdrawalLoss) =
-                withdrawSome(toFree);
-
-            if (withdrawalLoss < _profit) {
+            
+            (uint256 liquidatedAmount, uint256 withdrawalLoss) = withdrawSome(toFree);
+            
+            if(withdrawalLoss < _profit){
                 _profit = _profit.sub(withdrawalLoss);
-            } else {
+            }
+            else{
                 _loss = _loss.add(withdrawalLoss.sub(_profit));
                 _profit = 0;
             }
             wantBalance = want.balanceOf(address(this));
 
-            if (wantBalance < _profit) {
+            if(wantBalance < _profit){
                 _profit = wantBalance;
                 _debtPayment = 0;
-            } else if (wantBalance < _debtPayment.add(_profit)) {
+            }
+            else if (wantBalance < _debtPayment.add(_profit)){
                 _debtPayment = wantBalance.sub(_profit);
             }
         }
     }
 
-    function withdrawSome(uint256 _amount)
-        internal
-        returns (uint256 _liquidatedAmount, uint256 _loss)
-    {
+    function withdrawSome(uint256 _amount) internal returns (uint256 _liquidatedAmount, uint256 _loss) {
         uint256 wantBalanceBefore = want.balanceOf(address(this));
         uint256 vaultBalance = IERC20(vUSDC).balanceOf(address(this));
-        uint256 sharesToWithdraw =
-            convertTo18(_amount.mul(1e24).div(morePrecisePricePerShare()));
-        if (vaultBalance > 0) {
+        uint256 sharesToWithdraw = convertTo18(_amount
+                .mul(1e24)
+                .div(morePrecisePricePerShare()));
+        if(vaultBalance > 0){
             IVesperPool(vUSDC).withdraw(sharesToWithdraw);
         }
-        uint256 withdrawnAmount =
-            want.balanceOf(address(this)).sub(wantBalanceBefore);
-        if (withdrawnAmount >= _amount) {
+        uint256 withdrawnAmount = want.balanceOf(address(this)).sub(wantBalanceBefore);
+        if(withdrawnAmount >= _amount){
             _liquidatedAmount = _amount;
-        } else {
+        }
+        else{
             _liquidatedAmount = withdrawnAmount;
             _loss = _amount.sub(withdrawnAmount);
         }
@@ -249,7 +237,7 @@ contract Strategy is BaseStrategy {
 
     function withdrawAllVvsp() internal {
         uint256 vaultBalance = IERC20(vVSP).balanceOf(address(this));
-        if (vaultBalance > 0) {
+        if(vaultBalance > 0){
             IVesperPool(vVSP).withdraw(vaultBalance);
         }
     }
@@ -258,7 +246,7 @@ contract Strategy is BaseStrategy {
         if (emergencyExit) {
             return;
         }
-
+        
         uint256 wantBal = want.balanceOf(address(this));
 
         // In case we need to return want to the vault
@@ -273,88 +261,58 @@ contract Strategy is BaseStrategy {
         }
 
         // Check are we using the vsp vault?
-        if (useVvsp) {
+        if(useVvsp){
             IPoolRewards(poolRewards).claimReward(address(this));
             uint256 rewards = IERC20(vsp).balanceOf(address(this));
-            if (rewards > 0) {
+            if(rewards > 0){
                 IVesperPool(vVSP).deposit(rewards);
             }
         }
     }
 
-    function liquidatePosition(uint256 _amountNeeded)
-        internal
-        override
-        returns (uint256 _liquidatedAmount, uint256 _loss)
-    {
+    function liquidatePosition(uint256 _amountNeeded) internal override returns (uint256 _liquidatedAmount, uint256 _loss) {
+
         uint256 wantBal = want.balanceOf(address(this));
 
         if (_amountNeeded > wantBal) {
             // Need more want to meet request. Must convert to 18 decimals
-            (_liquidatedAmount, _loss) = withdrawSome(
-                _amountNeeded.sub(wantBal)
-            );
+            (_liquidatedAmount, _loss) = withdrawSome(_amountNeeded.sub(wantBal));
         }
-        _liquidatedAmount = Math.min(
-            _amountNeeded,
-            _liquidatedAmount.add(wantBal)
-        );
+        _liquidatedAmount = Math.min(_amountNeeded, _liquidatedAmount.add(wantBal));
     }
 
-    function tendTrigger(uint256 callCost)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function tendTrigger(uint256 callCost) public override virtual view returns (bool) {
         // We want to periodically invest our accrued VSP rewards balance into the vault to grow them further
-        if (!useVvsp) return false; // If we've chosen not to use the vVSP vault, return false
+        if(!useVvsp) return false; // If we've chosen not to use the vVSP vault, return false
 
         uint256 claimable = IPoolRewards(poolRewards).claimable(address(this));
-        if (claimable > 0) {
+        if(claimable > 0){
             uint256 wantValue = convertVspToWant(claimable);
-            if (wantValue < callCost) {
+            if(wantValue < callCost){
                 return false; // This will almost never be worth it if we harvest ~daily.
-            } else {
+            }
+            else{
                 return false;
             }
-        } else {
+        }
+        else{
             return false;
         }
     }
 
     function _sell(uint256 _amount) internal {
-        IUniswapV2Router(activeDex).swapExactTokensForTokens(
-            _amount,
-            uint256(0),
-            vspPath,
-            address(this),
-            now
-        );
+        IUniswapV2Router(activeDex).swapExactTokensForTokens(_amount, uint256(0), vspPath, address(this), now);
     }
 
     function prepareMigration(address _newStrategy) internal override {
         // want is taken care of by baseStrategy, but we must send pool tokens to new strat
-        IERC20(vUSDC).transfer(
-            _newStrategy,
-            IERC20(vUSDC).balanceOf(address(this))
-        );
-        IERC20(vsp).transfer(
-            _newStrategy,
-            IERC20(vsp).balanceOf(address(this))
-        );
-        IERC20(vVSP).transfer(
-            _newStrategy,
-            IERC20(vVSP).balanceOf(address(this))
-        );
+        IERC20(vUSDC).transfer(_newStrategy, IERC20(vUSDC).balanceOf(address(this)));
+        IERC20(vsp).transfer(_newStrategy, IERC20(vsp).balanceOf(address(this)));
+        IERC20(vVSP).transfer(_newStrategy, IERC20(vVSP).balanceOf(address(this)));
     }
-
+    
     function convertVspToWant(uint256 _amount) internal view returns (uint256) {
-        return
-            IUniswapV2Router(activeDex).getAmountsOut(_amount, vspPath)[
-                vspPath.length - 1
-            ];
+        return IUniswapV2Router(activeDex).getAmountsOut(_amount, vspPath)[vspPath.length - 1];
     }
 
     function convertFrom18(uint256 _value) public pure returns (uint256) {
@@ -364,7 +322,7 @@ contract Strategy is BaseStrategy {
     function convertTo18(uint256 _value) public pure returns (uint256) {
         return _value.mul(10**12);
     }
-
+    
     function setKeepVSP(uint256 _amount) external onlyGovernance {
         require(_amount < DENOMINATOR, "cannot greater than denom!");
         _keepVSP = _amount;
@@ -375,8 +333,7 @@ contract Strategy is BaseStrategy {
     }
 
     function toggleHarvestVvsp() external {
-        require(
-            msg.sender == strategist ||
+        require(msg.sender == strategist || 
                 msg.sender == governance() ||
                 msg.sender == vault.management(),
             "!authorized"
@@ -384,12 +341,7 @@ contract Strategy is BaseStrategy {
         harvestVvsp = true;
     }
 
-    function protectedTokens()
-        internal
-        view
-        override
-        returns (address[] memory)
-    {
+    function protectedTokens() internal view override returns (address[] memory) {
         address[] memory protected = new address[](2);
         protected[0] = vsp;
         protected[1] = vUSDC;
@@ -397,9 +349,6 @@ contract Strategy is BaseStrategy {
 
     function morePrecisePricePerShare() public view returns (uint256) {
         // We do this because Vesper's contract gives us a not-very-precise pps
-        return
-            IVesperPool(vUSDC).totalValue().mul(1e36).div(
-                IVesperPool(vUSDC).totalSupply()
-            );
+        return IVesperPool(vUSDC).totalValue().mul(1e36).div(IVesperPool(vUSDC).totalSupply());
     }
 }

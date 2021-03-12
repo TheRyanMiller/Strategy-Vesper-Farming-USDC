@@ -18,127 +18,116 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     
     # Allow rewards to be earned
     one_day = 86400
-    chain.sleep(one_day) # 1 day
+    chain.sleep(one_day*6) # 1 day
     chain.mine(1)
     strategy.harvest({"from": strategist})
-    print("\nEst No Dump APR: ", "{:.2%}".format(
-            ((vault.totalAssets() - amount) * 365) / (amount)
+
+    print("\nEst APR: ", "{:.2%}".format(
+            ((vault.totalAssets() - amount) * 365/6) / (amount)
         )
     )
 
     chain.sleep(one_day)
-    chain.mine(1)
-    strategy.harvest({"from": strategist})
-
-    chain.sleep(one_day)
-    chain.mine(1)
-    strategy.harvest({"from": strategist})
-
-    chain.sleep(one_day)
-    chain.mine(1)
-    strategy.harvest({"from": strategist})
-
-    chain.sleep(one_day)
-    # vVSP.rebalance({"from": strategist}) # must call from pool... this is hard to test
-    strategy.toggleHarvestVvsp({"from":strategist}) # Dump VSP tokens this time
+    # vVSP.rebalance({"from": strategist}) # must be called from pool... this is hard to test.
+    #strategy.toggleHarvestVvsp({"from":strategist}) # Dump VSP tokens this time
     strategy.harvest({"from": strategist})
 
     # Current contract has rewards emissions ending on Mar 19, so we shouldnt project too far
-    print("\nEst Dump APR: ", "{:.2%}".format(
-            ((vault.totalAssets() - amount) * 73) / (amount)
+    print("\nEst APR: ", "{:.2%}".format(
+            ((vault.totalAssets() - amount) * 365/7) / (amount)
         )
     )
     # withdrawal
-    chain.sleep(3600) #six hours
+    chain.sleep(3600) # wait six hours for a profitable withdraw
     vault.withdraw(vault.balanceOf(user),user,61,{"from": user}) # Need more loss protect to handle 0.6% withdraw fee
     assert token.balanceOf(user) != 0
 
 
-# def test_emergency_exit(accounts, token, vault, strategy, strategist, amount, user, vVSP):
-#     # Deposit to the vault
-#     token.approve(vault.address, amount, {"from": user})
-#     vault.deposit(amount, {"from": user})
-#     strategy.harvest({"from": strategist})
-#     assert strategy.estimatedTotalAssets() + 1 >= amount
+def test_emergency_exit(accounts, token, vault, strategy, strategist, amount, user, vVSP):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    strategy.harvest({"from": strategist})
+    assert strategy.estimatedTotalAssets() + 1 >= amount
 
-#     # set emergency and exit
-#     strategy.setEmergencyExit()
-#     strategy.harvest({"from": strategist})
-#     assert strategy.estimatedTotalAssets() < amount
-
-
-# def test_profitable_harvest(accounts, token, vault, strategy, strategist, amount, user, chain, vVSP):
-#     # Deposit to the vault
-#     token.approve(vault.address, amount, {"from": user})
-#     vault.deposit(amount, {"from": user})
-#     # harvest
-#     strategy.harvest({"from": strategist})
-#     assert strategy.estimatedTotalAssets()+1 >= amount
-#     chain.sleep(3600 * 24)
-#     chain.mine(1)
-#     # You should test that the harvest method is capable of making a profit.
-#     # TODO: uncomment the following lines.
-#     strategy.harvest({"from": strategist})
-#     chain.sleep(3600 * 24)
-#     chain.mine(1)
-#     assert strategy.estimatedTotalAssets() > amount
+    # set emergency and exit
+    strategy.setEmergencyExit()
+    strategy.harvest({"from": strategist})
+    assert strategy.estimatedTotalAssets() < amount
 
 
-# def test_change_debt(gov, token, vault, strategy, strategist, amount, user, vUSDC, vVSP):
-#     # Deposit to the vault and harvest
-#     token.approve(vault.address, amount, {"from": user})
-#     vault.deposit(amount, {"from": user})
-#     vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-#     strategy.harvest({"from": strategist})
-
-#     assert strategy.estimatedTotalAssets()+1 == amount / 2
-
-#     vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
-#     strategy.harvest({"from": strategist})
-#     assert strategy.estimatedTotalAssets() == amount
-
-#     # In order to pass this tests, you will need to implement prepareReturn.
-#     # TODO: uncomment the following lines.
-#     # vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-#     # assert token.balanceOf(strategy.address) == amount / 2
+def test_profitable_harvest(accounts, token, vault, strategy, strategist, amount, user, chain, vVSP):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    # harvest
+    strategy.harvest({"from": strategist})
+    assert strategy.estimatedTotalAssets()+1 >= amount
+    chain.sleep(3600 * 24)
+    chain.mine(1)
+    # You should test that the harvest method is capable of making a profit.
+    # TODO: uncomment the following lines.
+    strategy.harvest({"from": strategist})
+    chain.sleep(3600 * 24)
+    chain.mine(1)
+    assert strategy.estimatedTotalAssets() > amount
 
 
-# def test_sweep(gov, vault, strategy, token, amount, weth, weth_amout, vsp, user):
-#     # Strategy want token doesn't work
-#     token.transfer(strategy, amount, {"from": user})
-#     vsp.transfer(strategy, 1e20, {"from": user})
-#     assert token.address == strategy.want()
-#     assert token.balanceOf(strategy) > 0
-#     with brownie.reverts("!want"):
-#         strategy.sweep(token, {"from": gov})
+def test_change_debt(gov, token, vault, strategy, strategist, amount, user, vUSDC, vVSP):
+    # Deposit to the vault and harvest
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
+    strategy.harvest({"from": strategist})
 
-#     # Vault share token doesn't work
-#     with brownie.reverts("!shares"):
-#         strategy.sweep(vault.address, {"from": gov})
+    assert strategy.estimatedTotalAssets()+1 == amount / 2
 
-#     # TODO: If you add protected tokens to the strategy.
-#     # Protected token doesn't work
-#     # with brownie.reverts("!protected"):
-#     #     strategy.sweep(strategy.protectedToken(), {"from": gov})
+    vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
+    strategy.harvest({"from": strategist})
+    assert strategy.estimatedTotalAssets() >= amount
 
-#     with brownie.reverts("!want"):
-#          strategy.sweep(token.address, {"from": gov})
+    # In order to pass this tests, you will need to implement prepareReturn.
+    # TODO: uncomment the following lines.
+    # vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
+    # assert token.balanceOf(strategy.address) == amount / 2
+
+
+def test_sweep(gov, vault, strategy, token, amount, weth, weth_amout, vsp, user):
+    # Strategy want token doesn't work
+    token.transfer(strategy, amount, {"from": user})
+    vsp.transfer(strategy, 1e20, {"from": user})
+    assert token.address == strategy.want()
+    assert token.balanceOf(strategy) > 0
+    with brownie.reverts("!want"):
+        strategy.sweep(token, {"from": gov})
+
+    # Vault share token doesn't work
+    with brownie.reverts("!shares"):
+        strategy.sweep(vault.address, {"from": gov})
+
+    # TODO: If you add protected tokens to the strategy.
+    # Protected token doesn't work
+    # with brownie.reverts("!protected"):
+    #     strategy.sweep(strategy.protectedToken(), {"from": gov})
+
+    with brownie.reverts("!want"):
+         strategy.sweep(token.address, {"from": gov})
     
-#     with brownie.reverts("!authorized"):
-#          strategy.sweep(token.address, {"from": user})
+    with brownie.reverts("!authorized"):
+         strategy.sweep(token.address, {"from": user})
 
-#     weth.transfer(strategy, weth.balanceOf(gov), {"from": gov})
-#     assert weth.address != strategy.want()
-#     strategy.sweep(weth, {"from": gov})
-#     assert weth.balanceOf(gov) > 0
+    weth.transfer(strategy, weth.balanceOf(gov), {"from": gov})
+    assert weth.address != strategy.want()
+    strategy.sweep(weth, {"from": gov})
+    assert weth.balanceOf(gov) > 0
 
 
-# def test_triggers(gov, vault, strategy, token, amount, weth, weth_amout, user, strategist):
-#     # Deposit to the vault and harvest
-#     token.approve(vault.address, amount, {"from": user})
-#     depositAmount = amount
-#     vault.deposit(depositAmount, {"from": user})
-#     vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-#     strategy.harvest({"from": strategist})
-#     strategy.harvestTrigger(0)
-#     strategy.tendTrigger(0)
+def test_triggers(gov, vault, strategy, token, amount, weth, weth_amout, user, strategist):
+    # Deposit to the vault and harvest
+    token.approve(vault.address, amount, {"from": user})
+    depositAmount = amount
+    vault.deposit(depositAmount, {"from": user})
+    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
+    strategy.harvest({"from": strategist})
+    strategy.harvestTrigger(0)
+    strategy.tendTrigger(0)
