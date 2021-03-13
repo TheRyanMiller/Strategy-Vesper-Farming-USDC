@@ -272,7 +272,7 @@ contract Strategy is BaseStrategy {
             IVesperPool(vUSDC).deposit(_wantAvailable);
         }
 
-        // Check are we using the vsp vault?
+        // Check are we using the vsp vault? If so claim rewards and deposit
         if(useVvsp){
             IPoolRewards(poolRewards).claimReward(address(this));
             uint256 rewards = IERC20(vsp).balanceOf(address(this));
