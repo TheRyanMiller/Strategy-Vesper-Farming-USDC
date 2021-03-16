@@ -77,6 +77,12 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     assert vault.balanceOf(vault.rewards()) > 0 # Check mgmt fee
     assert vault.balanceOf(strategy) > 0 # Check perf fee
 
+def test_switch_dex(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP, vsp, vvspStrat):
+    originalDex = strategy.activeDex()
+    strategy.toggleActiveDex({"from": gov})
+    newDex = strategy.activeDex()
+    assert originalDex != newDex
+
 def test_emergency_exit(accounts, token, vault, strategy, strategist, amount, user, vVSP):
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})

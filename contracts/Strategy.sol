@@ -65,7 +65,6 @@ contract Strategy is BaseStrategy {
     address public constant vsp =           0x1b40183EFB4Dd766f11bDa7A7c3AD8982e998421;
     address public constant vVSP =          0xbA4cFE5741b357FA371b506e5db0774aBFeCf8Fc;
     address public constant poolRewards =   0xd59996055b5E0d154f2851A030E207E0dF0343B0;
-    address public constant usdc =          0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address public constant weth =          0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address[] public vspPath;
 
@@ -89,7 +88,7 @@ contract Strategy is BaseStrategy {
         vspPath = new address[](3);
         vspPath[0] = vsp;
         vspPath[1] = weth;
-        vspPath[2] = usdc;
+        vspPath[2] = address(want);
     }
 
     // ******** OVERRIDE THESE METHODS FROM BASE CONTRACT ************
@@ -109,7 +108,7 @@ contract Strategy is BaseStrategy {
         if(vspShares > 0){
             uint256 pps = IVesperPool(vVSP).getPricePerShare();
             uint256 vaultBal = pps.mul(vspShares).div(1e18);
-            totalVSP.add(vaultBal);
+            totalVSP = totalVSP.add(vaultBal);
         }
         totalVSP.add(IPoolRewards(poolRewards).claimable(address(this)));
         if(totalVSP > 0){
@@ -191,7 +190,6 @@ contract Strategy is BaseStrategy {
             if(vspBalance > 0){
                 _sell(vspBalance);
                 uint256 newBalance = want.balanceOf(address(this));
-                uint256 wantAfter = newBalance.sub(wantBalance); // Amount we just bought
                 wantBalance = newBalance;
                 // Check if we have enough
                 if(wantBalance > toFree){
@@ -301,9 +299,19 @@ contract Strategy is BaseStrategy {
 
     function prepareMigration(address _newStrategy) internal override {
         // want is taken care of by baseStrategy, but we must send pool tokens to new strat
-        IERC20(vUSDC).transfer(_newStrategy, IERC20(vUSDC).balanceOf(address(this)));
-        IERC20(vsp).transfer(_newStrategy, IERC20(vsp).balanceOf(address(this)));
-        IERC20(vVSP).transfer(_newStrategy, IERC20(vVSP).balanceOf(address(this)));
+        uint256 vUsdcBalance = IERC20(vUSDC).balanceOf(address(this));
+        uint256 vspBalance = IERC20(vsp).balanceOf(address(this));
+        uint256 vVspBalance = IERC20(vVSP).balanceOf(address(this));
+
+        if(vUsdcBalance > 0){
+            IERC20(vUSDC).transfer(_newStrategy, vUsdcBalance);
+        }
+        if(vspBalance > 0){
+            IERC20(vsp).transfer(_newStrategy, vspBalance);
+        }
+        if(vVspBalance > 0){
+            IERC20(vVSP).transfer(_newStrategy, vVspBalance);
+        }
     }
     
     function convertVspToWant(uint256 _amount) internal view returns (uint256) {
@@ -337,7 +345,7 @@ contract Strategy is BaseStrategy {
     }
 
     function toggleActiveDex() external onlyGovernance {
-        if(!activeDex == sushiswap){
+        if(activeDex == sushiswap){
             activeDex = uniswap;
         }
         else{
