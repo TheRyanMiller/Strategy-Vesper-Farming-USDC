@@ -10,13 +10,13 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     vault.deposit(amount, {"from": user})
     assert token.balanceOf(vault.address) == amount
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
 
     # harvest 1
     strategy.harvest({"from": strategist})
     chain.mine(1)
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
     assert strategy.estimatedTotalAssets()+1 >= amount # Won't match because we must account for withdraw fees
 
     # tend()
@@ -28,7 +28,7 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     chain.mine(1)
     strategy.harvest({"from": strategist})
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
 
     print("\nEst APR: ", "{:.2%}".format(
             ((vault.totalAssets() - amount) * 365) / (amount)
@@ -43,7 +43,7 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     # strategy.toggleHarvestVvsp({"from":strategist}) # Dump VSP tokens this time
     strategy.harvest({"from": strategist})
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
 
     # Current contract has rewards emissions ending on Mar 19, so we shouldnt project too far
     print("\nEst APR: ", "{:.2%}".format(
@@ -59,7 +59,7 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     strategy.toggleHarvestVvsp({"from":strategist}) # Dump VSP tokens this time
     strategy.harvest({"from": strategist})
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
 
     # Current contract has rewards emissions ending on Mar 19, so we shouldnt project too far
     print("\nEst APR: ", "{:.2%}".format(
@@ -67,15 +67,15 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
         )
     )
 
-    # Harves 5
+    # Harvest 5
     print("\n**Harvest 5**")
     chain.sleep(3600) # wait six hours for a profitable withdraw
     vault.withdraw(vault.balanceOf(user),user,61,{"from": user}) # Need more loss protect to handle 0.6% withdraw fee
     vaultData(vault, token)
-    stratData(strategy, token, vUSDC, vVSP, vsp)
+    stratData(strategy, token, vUSDC, vVSP, vsp, vault)
     assert token.balanceOf(user) > amount * 0.994 * .78 # Ensure profit was made after withdraw fee
     assert vault.balanceOf(vault.rewards()) > 0 # Check mgmt fee
-    assert vault.balanceOf(strategy) > 0 # Check perf fee
+    assert vault.balanceOf(strategy) > 0 # Check strategist perf fee
 
 def test_switch_dex(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP, vsp, vvspStrat):
     originalDex = strategy.activeDex()

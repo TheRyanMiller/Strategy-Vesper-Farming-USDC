@@ -1,13 +1,14 @@
 
 
 
-def stratData(strategy, token, vUSDC, vVSP, vsp):
+def stratData(strategy, token, vUSDC, vVSP, vsp, vault):
     decimals = token.decimals()
     print('\n----STRATEGY----')
     stratBal = token.balanceOf(strategy)
     vesperSharesU = vUSDC.balanceOf(strategy)
     vesperSharesV = vVSP.balanceOf(strategy)
     vspBal = vsp.balanceOf(strategy)
+    print("yvUSDC bal:", vault.balanceOf(strategy)/(10 ** decimals))
     print("usdc bal:", stratBal/(10 ** decimals))
     print("vsp bal:", vspBal/1e18)
     print("vesper shares USDC:", vesperSharesU / 1e18)
