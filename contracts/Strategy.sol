@@ -112,11 +112,11 @@ contract Strategy is BaseStrategy {
         }
         totalVSP.add(IPoolRewards(poolRewards).claimable(address(this)));
         if(totalVSP > 0){
-            totalWant.add(convertVspToWant(totalVSP));
+            totalWant = totalWant.add(convertVspToWant(totalVSP));
         }
         
         // Calculate want
-        totalWant.add(want.balanceOf(address(this)));
+        totalWant = totalWant.add(want.balanceOf(address(this)));
         return totalWant.add(calcWantHeldInVesper());
     }
 
@@ -299,6 +299,9 @@ contract Strategy is BaseStrategy {
 
     function prepareMigration(address _newStrategy) internal override {
         // want is taken care of by baseStrategy, but we must send pool tokens to new strat
+        if(IPoolRewards(poolRewards).claimable(address(this)) > 0){
+            IPoolRewards(poolRewards).claimReward(address(this));
+        }
         uint256 vUsdcBalance = IERC20(vUSDC).balanceOf(address(this));
         uint256 vspBalance = IERC20(vsp).balanceOf(address(this));
         uint256 vVspBalance = IERC20(vVSP).balanceOf(address(this));
