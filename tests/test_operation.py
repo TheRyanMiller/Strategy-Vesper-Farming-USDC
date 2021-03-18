@@ -4,6 +4,7 @@ from helpers import stratData,vaultData
 
 
 def test_operation(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP, vsp, vvspStrat):
+    chain.snapshot()
     one_day = 86400
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})
@@ -17,7 +18,8 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     chain.mine(1)
     vaultData(vault, token)
     stratData(strategy, token, vUSDC, vVSP, vsp, vault)
-    assert strategy.estimatedTotalAssets()+1 >= amount # Won't match because we must account for withdraw fees
+    amt = vault.debtRatio() * amount / 10000
+    assert strategy.estimatedTotalAssets()+1 >= amt # Won't match because we must account for withdraw fees
 
     # tend()
     # strategy.tend({"from": strategist})
@@ -73,58 +75,48 @@ def test_operation(accounts, token, vault, strategy, strategist, amount, user, v
     vault.withdraw(vault.balanceOf(user),user,61,{"from": user}) # Need more loss protect to handle 0.6% withdraw fee
     vaultData(vault, token)
     stratData(strategy, token, vUSDC, vVSP, vsp, vault)
-    assert token.balanceOf(user) > amount * 0.994 * .78 # Ensure profit was made after withdraw fee
+    amt = vault.debtRatio() * amount / 10000
+    assert token.balanceOf(user) > amt * 0.994 * .78 # Ensure profit was made after withdraw fee
     assert vault.balanceOf(vault.rewards()) > 0 # Check mgmt fee
     assert vault.balanceOf(strategy) > 0 # Check strategist perf fee
+    chain.revert()
 
 def test_switch_dex(accounts, token, vault, strategy, strategist, amount, user, vUSDC, chain, gov, vVSP, vsp, vvspStrat):
     originalDex = strategy.activeDex()
     strategy.toggleActiveDex({"from": gov})
     newDex = strategy.activeDex()
     assert originalDex != newDex
+    chain.revert()
 
-def test_emergency_exit(accounts, token, vault, strategy, strategist, amount, user, vVSP):
+def test_emergency_exit(accounts, token, vault, strategy, strategist, amount, user, vVSP, gov, chain):
     # Deposit to the vault
     token.approve(vault.address, amount, {"from": user})
     vault.deposit(amount, {"from": user})
     strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets() + 1 >= amount
+    amt = vault.debtRatio() * amount / 10000
+    assert strategy.estimatedTotalAssets() + 1 >= amt
 
     # set emergency and exit
-    strategy.setEmergencyExit()
+    strategy.setEmergencyExit({"from":gov})
     strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets() < amount
+    assert strategy.estimatedTotalAssets() < 10e6
+    chain.revert()
 
 
-def test_profitable_harvest(accounts, token, vault, strategy, strategist, amount, user, chain, vVSP):
-    # Deposit to the vault
-    token.approve(vault.address, amount, {"from": user})
-    vault.deposit(amount, {"from": user})
-    # harvest
-    strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets()+1 >= amount
-    chain.sleep(3600 * 24)
-    chain.mine(1)
-    # You should test that the harvest method is capable of making a profit.
-    # TODO: uncomment the following lines.
-    strategy.harvest({"from": strategist})
-    chain.sleep(3600 * 24)
-    chain.mine(1)
-    assert strategy.estimatedTotalAssets() > amount
-
-
-def test_change_debt(gov, token, vault, strategy, strategist, amount, user, vUSDC, vVSP):
+def test_change_debt(gov, token, vault, chain, strategy, strategist, amount, user, vUSDC, vVSP):
     # Deposit to the vault and harvest
     token.approve(vault.address, amount, {"from": user})
     vault.deposit(amount, {"from": user})
+    amt = vault.debtRatio() * amount / 10000
+    strategy.harvest({"from": strategist})
     vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
     strategy.harvest({"from": strategist})
-
-    assert strategy.estimatedTotalAssets()+1 == amount / 2
+    assert strategy.estimatedTotalAssets()+1 < amt
 
     vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
     strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets()+1 >= amount
+    assert strategy.estimatedTotalAssets()+1 >= amt
+    chain.revert()
 
     # In order to pass this tests, you will need to implement prepareReturn.
     # TODO: uncomment the following lines.
@@ -132,7 +124,7 @@ def test_change_debt(gov, token, vault, strategy, strategist, amount, user, vUSD
     # assert token.balanceOf(strategy.address) == amount / 2
 
 
-def test_sweep(gov, vault, strategy, token, amount, weth, weth_amout, vsp, user):
+def test_sweep(gov, vault, strategy, chain, token, amount, weth, weth_amout, vsp, user):
     # Strategy want token doesn't work
     token.transfer(strategy, amount, {"from": user})
     vsp.transfer(strategy, 1e20, {"from": user})
@@ -160,7 +152,7 @@ def test_sweep(gov, vault, strategy, token, amount, weth, weth_amout, vsp, user)
     assert weth.address != strategy.want()
     strategy.sweep(weth, {"from": gov})
     assert weth.balanceOf(gov) > 0
-
+    chain.revert()
 
 def test_triggers(gov, vault, strategy, token, amount, weth, weth_amout, user, strategist):
     # Deposit to the vault and harvest

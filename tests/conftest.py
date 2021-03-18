@@ -5,7 +5,8 @@ from brownie import Contract
 
 @pytest.fixture
 def gov(accounts):
-    yield accounts[0]
+    yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C",force=True) 
+    #yield accounts.at("0x846e211e8ba920B353FB717631C015cf04061Cc9",force=True) 
 
 
 @pytest.fixture
@@ -25,7 +26,8 @@ def management(accounts):
 
 @pytest.fixture
 def strategist(accounts):
-    yield accounts[4]
+    yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C",force=True) 
+
 
 
 @pytest.fixture
@@ -45,6 +47,10 @@ def user2(accounts):
 def token():
     token_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
     yield Contract(token_address)
+
+@pytest.fixture
+def strategist(accounts):
+    yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C",force=True)
 
 
 @pytest.fixture
@@ -67,8 +73,9 @@ def weth():
 
 
 @pytest.fixture
-def weth_amout(gov, weth):
+def weth_amout(gov, weth, accounts):
     weth_amout = 10 ** weth.decimals()
+    accounts[9].transfer(gov,"10 ether")
     gov.transfer(weth, weth_amout)
     yield weth_amout
 
@@ -83,22 +90,24 @@ def vsp(accounts, user):
 
 @pytest.fixture
 def vault(pm, gov, rewards, guardian, management, token):
-    Vault = pm(config["dependencies"][0]).Vault
-    vault = guardian.deploy(Vault)
-    vault.initialize(token, gov, rewards, "", "", guardian)
-    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
-    vault.setManagement(management, {"from": gov})
-    yield vault
+    yield Contract('0x477faf103dadc5fe5baa40951cf7512dcbc18126')
+    # Vault = pm(config["dependencies"][0]).Vault
+    # vault = guardian.deploy(Vault)
+    # vault.initialize(token, gov, rewards, "", "", guardian)
+    # vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+    # vault.setManagement(management, {"from": gov})
+    # yield vault
 
 
 @pytest.fixture
 def strategy(strategist, keeper, vault, Strategy, gov):
-    strategy = strategist.deploy(Strategy, vault)
-    strategy.setKeeper(keeper)
-    strategy.setStrategist(strategist,{"from": gov})
-    debtRatio = 10_000 # 100%
-    vault.addStrategy(strategy, debtRatio, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    yield strategy
+    yield Contract('0x282e8Af431d082D4A27251588315954b9BEc341b')
+    # strategy = strategist.deploy(Strategy, vault)
+    # strategy.setKeeper(keeper)
+    # strategy.setStrategist(strategist,{"from": gov})
+    # debtRatio = 10_000 # 100%
+    # vault.addStrategy(strategy, debtRatio, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    # yield strategy
 
 @pytest.fixture
 def vUSDC():

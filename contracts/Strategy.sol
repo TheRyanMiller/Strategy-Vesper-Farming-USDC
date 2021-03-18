@@ -232,7 +232,8 @@ contract Strategy is BaseStrategy {
         uint256 sharesToWithdraw = convertTo18(_amount
                 .mul(1e24)
                 .div(morePrecisePricePerShare()));
-        if(vaultBalance > 0){
+        if(vaultBalance > 0 && sharesToWithdraw > 0){
+            sharesToWithdraw = Math.min(sharesToWithdraw, vaultBalance);
             IVesperPool(vUSDC).withdraw(sharesToWithdraw);
         }
         uint256 withdrawnAmount = want.balanceOf(address(this)).sub(wantBalanceBefore);
